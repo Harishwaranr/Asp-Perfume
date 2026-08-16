@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Asp Perfume — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{--purple:#6b3fa0;--purple2:#9b6fd4;--purple3:#c9a8f0;--dark:#0e0a18;--dark2:#1a1030;--cream:#faf8f5;--text:#2a2a2a;--gray:#888}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--text);font-size:15px}
+
+/* Login gate */
+#gate{position:fixed;inset:0;background:var(--dark);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.gate-box{background:#fff;width:100%;max-width:400px;padding:40px 36px}
+.gate-box h1{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;margin-bottom:6px}
+.gate-box h1 span{color:var(--purple)}
+.gate-box p{font-size:.82rem;color:var(--gray);margin-bottom:26px;letter-spacing:.04em}
+.gate-box input{width:100%;padding:13px 15px;border:1px solid #ddd;margin-bottom:12px;font-family:inherit;font-size:.92rem;outline:none}
+.gate-box input:focus{border-color:var(--purple)}
+.gate-box button{width:100%;padding:14px;background:var(--purple);color:#fff;border:none;cursor:pointer;font-size:.76rem;letter-spacing:.18em;text-transform:uppercase;transition:background .25s}
+.gate-box button:hover{background:var(--dark)}
+.gate-err{color:#e74c3c;font-size:.82rem;min-height:20px;margin-bottom:8px}
+
+/* Shell */
+header{background:var(--dark);color:#fff;padding:18px 30px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
+header .brand{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:300;letter-spacing:.06em}
+header .brand span{color:var(--purple3)}
+header .right{display:flex;gap:18px;align-items:center;font-size:.8rem}
+header a{color:var(--purple3);text-decoration:none}
+header a:hover{color:#fff}
+header button{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:7px 15px;cursor:pointer;font-family:inherit;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+header button:hover{background:rgba(255,255,255,.12)}
+
+nav.tabs{background:#fff;border-bottom:1px solid #e8e8e8;display:flex;overflow-x:auto;padding:0 30px}
+nav.tabs button{background:none;border:none;padding:16px 22px;cursor:pointer;font-family:inherit;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);border-bottom:2px solid transparent;white-space:nowrap;transition:all .25s}
+nav.tabs button.active{color:var(--purple);border-bottom-color:var(--purple)}
+
+main{padding:30px;max-width:1400px;margin:0 auto}
+.panel{display:none}
+.panel.active{display:block}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:30px}
+.stat{background:#fff;padding:22px;border:1px solid #eee}
+.stat .label{font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin-bottom:8px}
+.stat .value{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:400;color:var(--dark)}
+.stat.alert .value{color:#e74c3c}
+
+.bar{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.bar input,.bar select{padding:10px 13px;border:1px solid #ddd;font-family:inherit;font-size:.86rem;outline:none;min-width:180px}
+.bar input:focus,.bar select:focus{border-color:var(--purple)}
+.btn{padding:11px 20px;background:var(--purple);color:#fff;border:none;cursor:pointer;font-family:inherit;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;transition:background .25s}
+.btn:hover{background:var(--dark)}
+.btn.ghost{background:none;color:var(--purple);border:1px solid var(--purple)}
+.btn.ghost:hover{background:var(--purple);color:#fff}
+.btn.danger{background:#e74c3c}
+.btn.danger:hover{background:#c0392b}
+.btn.sm{padding:7px 13px;font-size:.66rem}
+
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #eee;font-size:.86rem}
+th{background:var(--dark);color:#fff;text-align:left;padding:13px 14px;font-size:.68rem;letter-spacing:.13em;text-transform:uppercase;font-weight:400;white-space:nowrap}
+td{padding:13px 14px;border-bottom:1px solid #f2f2f2;vertical-align:middle}
+tr:hover td{background:#faf8ff}
+td img{width:44px;height:44px;object-fit:cover}
+.muted{color:var(--gray);font-size:.8rem}
+.badge{display:inline-block;padding:4px 11px;font-size:.68rem;letter-spacing:.08em;background:#f0eaf8;color:var(--purple);white-space:nowrap}
+.badge.green{background:#e6f7ee;color:#1e8449}
+.badge.red{background:#fdecea;color:#c0392b}
+.badge.amber{background:#fef5e7;color:#b9770e}
+.badge.gray{background:#f0f0f0;color:#666}
+select.status{padding:6px 9px;border:1px solid #ddd;font-family:inherit;font-size:.78rem;outline:none;cursor:pointer}
+.wrap{overflow-x:auto}
+.empty{padding:50px 20px;text-align:center;color:var(--gray);background:#fff;border:1px solid #eee}
+
+/* Product form modal */
+#modal{display:none;position:fixed;inset:0;background:rgba(14,10,24,.72);z-index:200;align-items:flex-start;justify-content:center;padding:30px 20px;overflow-y:auto;backdrop-filter:blur(4px)}
+.modal-box{background:#fff;width:100%;max-width:620px;margin:auto}
+.modal-head{background:var(--dark);color:#fff;padding:20px 26px;display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:300}
+.modal-head button{background:none;border:none;color:#fff;font-size:1.6rem;cursor:pointer;line-height:1}
+.modal-body{padding:24px 26px 28px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.66rem;letter-spacing:.13em;text-transform:uppercase;color:var(--gray);margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1px solid #ddd;font-family:inherit;font-size:.88rem;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--purple)}
+.field textarea{resize:vertical;min-height:70px}
+.modal-err{color:#e74c3c;font-size:.82rem;min-height:20px;margin-bottom:8px}
+
+#toast{position:fixed;bottom:24px;right:24px;z-index:500;display:flex;flex-direction:column;gap:10px}
+.tst{background:var(--dark);color:#fff;padding:13px 20px;font-size:.83rem;max-width:330px;border-left:3px solid var(--purple2);box-shadow:0 12px 40px rgba(0,0,0,.28)}
+.tst.ok{border-left-color:#27ae60}
+.tst.err{border-left-color:#e74c3c}
+
+@media(max-width:700px){main{padding:18px}nav.tabs{padding:0 12px}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN GATE ── -->
+<div id="gate">
+  <div class="gate-box">
+    <h1>Asp <span>Perfume</span></h1>
+    <p>Admin access only</p>
+    <input type="email" id="g-email" placeholder="Admin email" autocomplete="username"/>
+    <input type="password" id="g-pass" placeholder="Password" autocomplete="current-password"/>
+    <div class="gate-err" id="g-err"></div>
+    <button onclick="doLogin()">Log In</button>
+  </div>
+</div>
+
+<!-- ── SHELL ── -->
+<header>
+  <div class="brand">Asp <span>Perfume</span> · Admin</div>
+  <div class="right">
+    <a href="index.html">← Storefront</a>
+    <span id="who" class="muted"></span>
+    <button onclick="doLogout()">Log Out</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="active" data-panel="dash" onclick="showPanel('dash')">Dashboard</button>
+  <button data-panel="products" onclick="showPanel('products')">Products</button>
+  <button data-panel="orders" onclick="showPanel('orders')">Orders</button>
+  <button data-panel="contacts" onclick="showPanel('contacts')">Messages</button>
+  <button data-panel="users" onclick="showPanel('users')">Customers</button>
+</nav>
+
+<main>
+  <div class="panel active" id="p-dash">
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div class="panel" id="p-products">
+    <div class="bar">
+      <input type="text" id="pSearch" placeholder="Search products…" oninput="loadProducts()"/>
+      <button class="btn" onclick="openProductModal()">+ New Product</button>
+    </div>
+    <div class="wrap"><table id="pTable"></table></div>
+  </div>
+
+  <div class="panel" id="p-orders">
+    <div class="bar">
+      <input type="text" id="oSearch" placeholder="Order ID, name, email, phone…" oninput="loadOrders()"/>
+      <select id="oStatus" onchange="loadOrders()"><option>All</option></select>
+    </div>
+    <div class="wrap"><table id="oTable"></table></div>
+  </div>
+
+  <div class="panel" id="p-contacts">
+    <div class="bar">
+      <select id="cType" onchange="loadContacts()">
+        <option value="">All types</option>
+        <option value="feedback">Feedback</option>
+        <option value="contact">Contact</option>
+        <option value="newsletter">Newsletter</option>
+      </select>
+      <select id="cStatus" onchange="loadContacts()">
+        <option value="">All statuses</option>
+        <option value="new">New</option>
+        <option value="read">Read</option>
+        <option value="resolved">Resolved</option>
+      </select>
+    </div>
+    <div class="wrap"><table id="cTable"></table></div>
+  </div>
+
+  <div class="panel" id="p-users">
+    <div class="wrap"><table id="uTable"></table></div>
+  </div>
+</main>
+
+<!-- ── PRODUCT MODAL ── -->
+<div id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="mTitle">New Product</h3>
+      <button onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f-id"/>
+      <div class="grid2">
+        <div class="field"><label>Name *</label><input id="f-name" placeholder="Midnight Noir"/></div>
+        <div class="field"><label>Category *</label><select id="f-category">
+          <option>Woody</option><option>Floral</option><option>Citrus</option>
+          <option>Oriental</option><option>Fresh</option><option>Gourmand</option>
+        </select></div>
+      </div>
+      <div class="field"><label>Description *</label><textarea id="f-desc" placeholder="Deep smoky oud…"></textarea></div>
+      <div class="grid2">
+        <div class="field"><label>Price (₹) *</label><input type="number" id="f-price" min="0"/></div>
+        <div class="field"><label>Size</label><input id="f-size" placeholder="50ml"/></div>
+      </div>
+      <div class="field"><label>Image URL or path *</label><input id="f-image" placeholder="images/black-element.jpg"/></div>
+      <div class="grid2">
+        <div class="field"><label>Badge / Tag</label><input id="f-tag" placeholder="Bestseller"/></div>
+        <div class="field"><label>Stock</label><input type="number" id="f-stock" min="0" value="0"/></div>
+      </div>
+      <div class="field"><label>Top Notes</label><input id="f-top" placeholder="Black Pepper, Bergamot"/></div>
+      <div class="field"><label>Heart Notes</label><input id="f-heart" placeholder="Oud Wood, Smoky Amber"/></div>
+      <div class="field"><label>Base Notes</label><input id="f-base" placeholder="Dark Musk, Patchouli"/></div>
+      <div class="grid2">
+        <div class="field"><label>Longevity</label><input id="f-longevity" placeholder="12–16 hours"/></div>
+        <div class="field"><label>Sillage</label><input id="f-sillage" placeholder="Heavy"/></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Occasion</label><input id="f-occasion" placeholder="Evening, Night Out"/></div>
+        <div class="field"><label>Season</label><input id="f-season" placeholder="Autumn, Winter"/></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Sort Order</label><input type="number" id="f-sort" value="100"/></div>
+        <div class="field"><label>Visible on storefront</label><select id="f-active">
+          <option value="true">Yes</option><option value="false">No (archived)</option>
+        </select></div>
+      </div>
+      <div class="modal-err" id="mErr"></div>
+      <button class="btn" onclick="saveProduct()" id="mSave">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   ADMIN DASHBOARD
+   Every request below hits /api/admin/*, which is guarded by
+   protect + adminOnly on the server. This page hiding itself
+   behind a login gate is convenience, NOT security — the real
+   enforcement is server-side, so pasting the URL directly or
+   editing the DOM gets you nothing without an admin token.
+   ══════════════════════════════════════════════════════════ */
+
+const API = (location.port === '5000' || location.port === '')
+  ? '/api' : 'http://localhost:5000/api';
+const KEY = 'asp_token';
+let ORDER_STATUSES = [];
+
+const money = n => '₹' + Number(n||0).toLocaleString('en-IN');
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const fdate = d => new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+
+async function api(path,{method='GET',body}={}){
+  const res = await fetch(API+path,{
+    method,
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem(KEY)},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let data={}; try{ data = await res.json(); }catch(_){}
+  if(!res.ok){
+    if(res.status===401){ localStorage.removeItem(KEY); showGate(); }
+    throw new Error(data.message || 'Request failed ('+res.status+')');
+  }
+  return data;
+}
+
+function toast(msg,type='ok'){
+  const el=document.createElement('div');
+  el.className='tst '+type; el.textContent=msg;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(()=>el.remove(),3800);
+}
+
+/* ── AUTH ── */
+function showGate(){ document.getElementById('gate').style.display='flex'; }
+function hideGate(){ document.getElementById('gate').style.display='none'; }
+
+async function doLogin(){
+  const err = document.getElementById('g-err');
+  err.textContent='';
+  const email = document.getElementById('g-email').value.trim();
+  const password = document.getElementById('g-pass').value;
+  if(!email||!password){ err.textContent='Email and password are required.'; return; }
+
+  try{
+    const res = await fetch(API+'/auth/login',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,password})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.message||'Login failed');
+    if(data.user.role !== 'admin'){ throw new Error('That account is not an administrator.'); }
+
+    localStorage.setItem(KEY,data.token);
+    document.getElementById('who').textContent = data.user.email;
+    hideGate();
+    bootstrap();
+  }catch(e){ err.textContent = e.message; }
+}
+
+function doLogout(){ localStorage.removeItem(KEY); location.reload(); }
+
+/* ── TABS ── */
+function showPanel(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p-'+name).classList.add('active');
+  document.querySelectorAll('nav.tabs button').forEach(b=>
+    b.classList.toggle('active', b.dataset.panel===name));
+  ({dash:loadStats,products:loadProducts,orders:loadOrders,
+    contacts:loadContacts,users:loadUsers}[name])();
+}
+
+/* ── DASHBOARD ── */
+async function loadStats(){
+  try{
+    const {stats:s} = await api('/admin/stats');
+    document.getElementById('stats').innerHTML = `
+      <div class="stat"><div class="label">Revenue</div><div class="value">${money(s.revenue)}</div></div>
+      <div class="stat"><div class="label">Total Orders</div><div class="value">${s.totalOrders}</div></div>
+      <div class="stat"><div class="label">Pending Orders</div><div class="value">${s.pendingOrders}</div></div>
+      <div class="stat"><div class="label">Avg Order Value</div><div class="value">${money(s.averageOrderValue)}</div></div>
+      <div class="stat"><div class="label">Active Products</div><div class="value">${s.activeProducts}/${s.totalProducts}</div></div>
+      <div class="stat ${s.lowStock?'alert':''}"><div class="label">Low Stock (≤5)</div><div class="value">${s.lowStock}</div></div>
+      <div class="stat"><div class="label">Customers</div><div class="value">${s.totalUsers}</div></div>
+      <div class="stat ${s.newContacts?'alert':''}"><div class="label">New Messages</div><div class="value">${s.newContacts}</div></div>`;
+  }catch(e){ toast(e.message,'err'); }
+}
+
+/* ── PRODUCTS ── */
+async function loadProducts(){
+  const q = document.getElementById('pSearch').value.trim();
+  try{
+    const {products} = await api('/admin/products?search='+encodeURIComponent(q));
+    const t = document.getElementById('pTable');
+    if(!products.length){ t.outerHTML='<table id="pTable"></table>';
+      document.getElementById('p-products').querySelector('.wrap').innerHTML='<div class="empty">No products found.</div>'; return; }
+
+    document.getElementById('p-products').querySelector('.wrap').innerHTML='<table id="pTable"></table>';
+    document.getElementById('pTable').innerHTML = `
+      <tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr>
+      ${products.map(p=>`
+      <tr>
+        <td><img src="${esc(p.image)}" alt=""/></td>
+        <td><b>${esc(p.name)}</b><div class="muted">${esc(p.size)}${p.tag?' · '+esc(p.tag):''}</div></td>
+        <td><span class="badge">${esc(p.category)}</span></td>
+        <td>${money(p.price)}</td>
+        <td>${p.stock===0?'<span class="badge red">Out</span>':p.stock<=5?`<span class="badge amber">${p.stock} left</span>`:p.stock}</td>
+        <td>${p.isActive?'<span class="badge green">Live</span>':'<span class="badge gray">Archived</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn ghost sm" onclick='editProduct(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
+          <button class="btn danger sm" onclick="deleteProduct('${p._id}','${esc(p.name)}',${p.isActive})">${p.isActive?'Archive':'Delete'}</button>
+        </td>
+      </tr>`).join('')}`;
+  }catch(e){ toast(e.message,'err'); }
+}
+
+function openProductModal(){
+  document.getElementById('mTitle').textContent='New Product';
+  document.getElementById('mErr').textContent='';
+  ['f-id','f-name','f-desc','f-price','f-image','f-tag','f-top','f-heart','f-base',
+   'f-longevity','f-sillage','f-occasion','f-season'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-size').value='50ml';
+  document.getElementById('f-stock').value='0';
+  document.getElementById('f-sort').value='100';
+  document.getElementById('f-active').value='true';
+  document.getElementById('modal').style.display='flex';
+}
+
+function editProduct(p){
+  openProductModal();
+  document.getElementById('mTitle').textContent='Edit — '+p.name;
+  document.getElementById('f-id').value=p._id;
+  document.getElementById('f-name').value=p.name;
+  document.getElementById('f-desc').value=p.description;
+  document.getElementById('f-price').value=p.price;
+  document.getElementById('f-size').value=p.size;
+  document.getElementById('f-image').value=p.image;
+  document.getElementById('f-category').value=p.category;
+  document.getElementById('f-tag').value=p.tag||'';
+  document.getElementById('f-stock').value=p.stock;
+  document.getElementById('f-top').value=(p.notes&&p.notes.top)||'';
+  document.getElementById('f-heart').value=(p.notes&&p.notes.heart)||'';
+  document.getElementById('f-base').value=(p.notes&&p.notes.base)||'';
+  document.getElementById('f-longevity').value=p.longevity||'';
+  document.getElementById('f-sillage').value=p.sillage||'';
+  document.getElementById('f-occasion').value=p.occasion||'';
+  document.getElementById('f-season').value=p.season||'';
+  document.getElementById('f-sort').value=p.sortOrder;
+  document.getElementById('f-active').value=String(p.isActive);
+}
+
+function closeModal(){ document.getElementById('modal').style.display='none'; }
+
+async function saveProduct(){
+  const err=document.getElementById('mErr'); err.textContent='';
+  const btn=document.getElementById('mSave');
+  const id = document.getElementById('f-id').value;
+  const v = i => document.getElementById('f-'+i).value.trim();
+
+  const body = {
+    name:v('name'), description:v('desc'), price:Number(v('price')),
+    size:v('size')||'50ml', image:v('image'), category:v('category'),
+    tag:v('tag'), stock:Number(v('stock'))||0,
+    notes:{ top:v('top'), heart:v('heart'), base:v('base') },
+    longevity:v('longevity'), sillage:v('sillage'),
+    occasion:v('occasion'), season:v('season'),
+    sortOrder:Number(v('sort'))||100,
+    isActive: v('active')==='true'
+  };
+
+  if(!body.name||!body.description||!body.image||isNaN(body.price)){
+    err.textContent='Name, description, image and price are required.'; return;
+  }
+
+  btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const r = id ? await api('/admin/products/'+id,{method:'PUT',body})
+                 : await api('/admin/products',{method:'POST',body});
+    toast(r.message);
+    closeModal(); loadProducts();
+  }catch(e){ err.textContent=e.message; }
+  finally{ btn.disabled=false; btn.textContent='Save Product'; }
+}
+
+async function deleteProduct(id,name,isActive){
+  const msg = isActive
+    ? `Archive "${name}"? It will be hidden from the storefront but kept in past orders.`
+    : `Permanently delete "${name}"? This cannot be undone.`;
+  if(!confirm(msg)) return;
+  try{
+    const r = await api('/admin/products/'+id+(isActive?'':'?hard=true'),{method:'DELETE'});
+    toast(r.message); loadProducts();
+  }catch(e){ toast(e.message,'err'); }
+}
+
+/* ── ORDERS ── */
+async function loadOrders(){
+  const q = document.getElementById('oSearch').value.trim();
+  const st = document.getElementById('oStatus').value;
+  try{
+    const {orders,statuses} = await api(
+      `/admin/orders?search=${encodeURIComponent(q)}&status=${encodeURIComponent(st)}`);
+
+    if(!ORDER_STATUSES.length && statuses){
+      ORDER_STATUSES = statuses;
+      document.getElementById('oStatus').innerHTML =
+        '<option>All</option>'+statuses.map(s=>`<option>${s}</option>`).join('');
+      document.getElementById('oStatus').value = st || 'All';
+    }
+
+    const wrap = document.getElementById('p-orders').querySelector('.wrap');
+    if(!orders.length){ wrap.innerHTML='<div class="empty">No orders found.</div>'; return; }
+
+    wrap.innerHTML='<table id="oTable"></table>';
+    document.getElementById('oTable').innerHTML = `
+      <tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th></tr>
+      ${orders.map(o=>`
+      <tr>
+        <td><b>${o.orderId}</b><div class="muted">${fdate(o.createdAt)}</div></td>
+        <td>${esc(o.shipping.name)}
+          <div class="muted">${esc(o.shipping.email)}<br>${esc(o.shipping.phone)}</div>
+          <div class="muted">${esc(o.shipping.city)}, ${esc(o.shipping.state)} — ${esc(o.shipping.pincode)}</div></td>
+        <td>${o.items.map(i=>esc(i.name)+' ×'+i.quantity).join('<br>')}</td>
+        <td><b>${money(o.grandTotal)}</b>
+          ${o.pointsDiscount?`<div class="muted">−${money(o.pointsDiscount)} pts</div>`:''}
+          ${o.shippingFee?`<div class="muted">+${money(o.shippingFee)} ship</div>`:''}</td>
+        <td><span class="badge ${o.payment.status==='paid'?'green':o.payment.status==='refunded'?'amber':'gray'}">${o.payment.method.toUpperCase()} · ${o.payment.status}</span></td>
+        <td>
+          <select class="status" onchange="updateStatus('${o._id}',this.value,'${o.orderId}')">
+            ${ORDER_STATUSES.map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('')}`;
+  }catch(e){ toast(e.message,'err'); }
+}
+
+async function updateStatus(id,status,orderId){
+  if(status==='Cancelled' && !confirm(`Cancel ${orderId}? Stock will be returned and points refunded.`)){
+    loadOrders(); return;
+  }
+  try{
+    const r = await api('/admin/orders/'+id+'/status',{method:'PUT',body:{status}});
+    toast(r.message); loadOrders();
+  }catch(e){ toast(e.message,'err'); loadOrders(); }
+}
+
+/* ── CONTACTS ── */
+async function loadContacts(){
+  const type=document.getElementById('cType').value;
+  const status=document.getElementById('cStatus').value;
+  try{
+    const {contacts} = await api(`/admin/contacts?type=${type}&status=${status}`);
+    const wrap = document.getElementById('p-contacts').querySelector('.wrap');
+    if(!contacts.length){ wrap.innerHTML='<div class="empty">No messages.</div>'; return; }
+
+    wrap.innerHTML='<table id="cTable"></table>';
+    document.getElementById('cTable').innerHTML = `
+      <tr><th>From</th><th>Type</th><th>Subject / Message</th><th>Received</th><th>Status</th></tr>
+      ${contacts.map(c=>`
+      <tr>
+        <td>${esc(c.name||'—')}<div class="muted">${esc(c.email)}${c.phone?'<br>'+esc(c.phone):''}</div></td>
+        <td><span class="badge">${c.type}</span></td>
+        <td><b>${esc(c.subject)}</b>${c.message?`<div class="muted" style="margin-top:4px;max-width:420px">${esc(c.message)}</div>`:''}</td>
+        <td class="muted">${fdate(c.createdAt)}</td>
+        <td>
+          <select class="status" onchange="updateContact('${c._id}',this.value)">
+            <option ${c.status==='new'?'selected':''}>new</option>
+            <option ${c.status==='read'?'selected':''}>read</option>
+            <option ${c.status==='resolved'?'selected':''}>resolved</option>
+          </select>
+        </td>
+      </tr>`).join('')}`;
+  }catch(e){ toast(e.message,'err'); }
+}
+
+async function updateContact(id,status){
+  try{ await api('/admin/contacts/'+id,{method:'PUT',body:{status}}); toast('Updated.'); loadContacts(); }
+  catch(e){ toast(e.message,'err'); }
+}
+
+/* ── USERS ── */
+async function loadUsers(){
+  try{
+    const {users} = await api('/admin/users');
+    const wrap = document.getElementById('p-users').querySelector('.wrap');
+    if(!users.length){ wrap.innerHTML='<div class="empty">No customers yet.</div>'; return; }
+    wrap.innerHTML='<table id="uTable"></table>';
+    document.getElementById('uTable').innerHTML = `
+      <tr><th>Name</th><th>Email</th><th>Mobile</th><th>Role</th><th>Points</th><th>Joined</th></tr>
+      ${users.map(u=>`
+      <tr>
+        <td><b>${esc(u.name)}</b></td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.phone||'—')}</td>
+        <td><span class="badge ${u.role==='admin'?'':'gray'}">${u.role}</span></td>
+        <td>${u.points}</td>
+        <td class="muted">${fdate(u.createdAt)}</td>
+      </tr>`).join('')}`;
+  }catch(e){ toast(e.message,'err'); }
+}
+
+/* ── BOOT ── */
+function bootstrap(){ loadStats(); }
+
+(async function(){
+  const t = localStorage.getItem(KEY);
+  if(!t){ showGate(); return; }
+  try{
+    const {user} = await api('/auth/me');
+    if(user.role!=='admin'){ showGate(); return; }
+    document.getElementById('who').textContent = user.email;
+    hideGate(); bootstrap();
+  }catch(_){ showGate(); }
+})();
+
+document.getElementById('g-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('modal').addEventListener('click',e=>{
+  if(e.target.id==='modal') closeModal();
+});
+</script>
+</body>
+</html>
