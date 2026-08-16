@@ -35,7 +35,10 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // CORS. Reads a comma-separated allowlist from .env rather than using
 // `cors()` wide open, because a wide-open API can be called from any
 // site on the internet using your visitors' credentials.
-const allowedOrigins = (process.env.CLIENT_URLS || 'http://localhost:5500,http://127.0.0.1:5500')
+const allowedOrigins = (
+  process.env.CLIENT_URLS ||
+  'http://localhost:5500,http://127.0.0.1:5500,http://localhost:5000,http://127.0.0.1:5000,https://asp-perfume.onrender.com'
+)
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
