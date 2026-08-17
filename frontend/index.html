@@ -755,27 +755,11 @@ function switchPayTab(tab){
   document.querySelector(`.pay-tab[data-tab="${tab}"]`).classList.add('active');
   document.getElementById('panel-'+tab).style.display='block';
 }
- 
-function placeOrder(){
-  const tab = document.querySelector('.pay-tab.active').dataset.tab;
-  if(tab==='upi'){
-    const upi = document.getElementById('upi-id').value.trim();
-    if(!upi || !upi.includes('@')){ alert('Please enter a valid UPI ID (e.g. name@upi)'); return; }
-  } else if(tab==='card'){
-    const num = document.getElementById('card-num').value.replace(/\s/g,'');
-    const exp = document.getElementById('card-exp').value.trim();
-    const cvv = document.getElementById('card-cvv').value.trim();
-    const nm  = document.getElementById('card-name').value.trim();
-    if(num.length < 16){ alert('Enter a valid 16-digit card number'); return; }
-    if(!exp || !/^\d{2}\/\d{2}$/.test(exp)){ alert('Enter expiry as MM/YY'); return; }
-    if(cvv.length < 3){ alert('Enter a valid CVV'); return; }
-    if(!nm){ alert('Enter name on card'); return; }
-  } else if(tab==='netbank'){
-    if(!document.getElementById('nb-bank').value){ alert('Please select a bank'); return; }
-  }
-  showPage('success-page');
-}
- 
+
+// placeOrder() is defined in js/api.js — don't define it here!
+// The api.js version handles Razorpay payment flow correctly.
+// All old demo payment code has been removed from index.html.
+
 function formatCardNum(el){
   let v = el.value.replace(/\D/g,'').substring(0,16);
   el.value = v.replace(/(.{4})/g,'$1 ').trim();
@@ -921,11 +905,14 @@ function formatCardNum(el){
  
         <!-- CARD -->
         <div class="pay-panel" id="panel-card">
-          <div class="co-field" style="margin-bottom:14px">
+          <div style="background:rgba(107,63,160,.1);border:1px solid rgba(107,63,160,.2);border-radius:4px;padding:12px 14px;margin-bottom:14px;font-size:.82rem;color:#555;">
+            <strong style="color:#6b3fa0;">Secure Razorpay Payment:</strong> Your card details are handled securely by Razorpay. Click "Pay & Place Order" to proceed.
+          </div>
+          <div class="co-field" style="margin-bottom:14px;display:none">
             <label>Card Number *</label>
             <input id="card-num" type="text" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCardNum(this)"/>
           </div>
-          <div class="co-form-row">
+          <div class="co-form-row" style="display:none">
             <div class="co-field">
               <label>Expiry (MM/YY) *</label>
               <input id="card-exp" type="text" placeholder="08/27" maxlength="5"/>
@@ -935,7 +922,7 @@ function formatCardNum(el){
               <input id="card-cvv" type="password" placeholder="•••" maxlength="4"/>
             </div>
           </div>
-          <div class="co-field" style="margin-bottom:14px">
+          <div class="co-field" style="margin-bottom:14px;display:none">
             <label>Name on Card *</label>
             <input id="card-name" type="text" placeholder="Ravi Kumar"/>
           </div>
@@ -1964,13 +1951,13 @@ function addPurchasePoints(total){
   });
 }
  
-// ── RAZORPAY PAYMENT BACKEND INTEGRATION ───────
-// The payment flows through Razorpay. The merchant account
-// (harishwaran.r2006@okhdfcbank) is set server-side in the
-// Razorpay dashboard — it is NEVER exposed to the client.
-// This frontend calls your backend /api/create-order to get
-// a Razorpay order ID, then opens the Razorpay checkout SDK.
-// On success, it calls /api/verify-payment to confirm.
+// ── RAZORPAY PAYMENT INTEGRATION ───────
+// All Razorpay payment logic is handled in js/api.js
+// This is loaded BEFORE api.js so it can initialize the Razorpay SDK.
+// 
+// DO NOT add fallback payment handlers here.
+// DO NOT call showPage('success-page') here.
+// The payment flow is managed entirely by js/api.js
  
 // Load Razorpay SDK
 (function loadRazorpay(){
@@ -1979,127 +1966,6 @@ function addPurchasePoints(total){
   s.async = true;
   document.head.appendChild(s);
 })();
- 
-async function initiateRazorpayPayment(amountInPaise, customerName, customerEmail, customerPhone, onSuccess){
-  // Step 1 — create order on backend
-  let orderId, razorpayKeyId;
-  try {
-    const res = await fetch('/api/create-order', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ amount: amountInPaise, currency:'INR',
-        name: customerName, email: customerEmail, phone: customerPhone })
-    });
-    const data = await res.json();
-    if(!data.order_id) throw new Error(data.error || 'Order creation failed');
-    orderId = data.order_id;
-    razorpayKeyId = data.key_id;
-  } catch(err){
-    // Backend not live yet — show demo confirmation
-    console.warn('Backend not reachable, running in demo mode:', err.message);
-    onSuccess({ demo: true });
-    return;
-  }
- 
-  // Step 2 — open Razorpay checkout
-  const options = {
-    key: razorpayKeyId,
-    amount: amountInPaise,
-    currency: 'INR',
-    name: 'Asp Perfume',
-    description: 'Fragrance Purchase',
-    image: 'https://images.unsplash.com/photo-1588405748880-12d1d2a59f75?w=60&q=80',
-    order_id: orderId,
-    prefill: { name: customerName, email: customerEmail, contact: customerPhone },
-    theme: { color: '#6b3fa0' },
-    handler: async function(response){
-      // Step 3 — verify on backend
-      try {
-        const vRes = await fetch('/api/verify-payment', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature
-          })
-        });
-        const vData = await vRes.json();
-        if(vData.verified) onSuccess(response);
-        else alert('Payment verification failed. Please contact support.');
-      } catch(e){
-        onSuccess(response); // allow if verify endpoint unreachable
-      }
-    },
-    modal: { ondismiss: function(){ console.log('Payment cancelled'); } }
-  };
-  const rzp = new window.Razorpay(options);
-  rzp.on('payment.failed', function(r){
-    alert('Payment failed: ' + (r.error.description || 'Please try again.'));
-  });
-  rzp.open();
-}
- 
-// Legacy Razorpay wrapper — DISABLED.
-// Superseded by js/api.js placeOrder(), which posts to /api/orders.
-// Kept for reference only; see backend/controllers/paymentController.js
-// for the server-verified Razorpay flow.
-var _origPlaceOrder = placeOrder;
-var _legacyRazorpayPlaceOrder = function(){
-  // Gather cart total
-  let total = 0;
-  for(const [name,qty] of Object.entries(cartItems)){
-    total += products[name].price * qty;
-  }
-  // Apply points discount if checked
-  const usePointsEl = document.getElementById('use-points-check');
-  let discount = 0;
-  if(usePointsEl && usePointsEl.checked && memberPoints >= 500){
-    const maxDiscount = Math.min(memberPoints * 0.1, total * 0.2); // max 20% off
-    discount = Math.floor(maxDiscount);
-  }
-  const finalAmount = Math.max(total - discount, 1);
- 
-  const name  = document.getElementById('co-name').value.trim();
-  const email = document.getElementById('co-email').value.trim();
-  const phone = document.getElementById('co-phone').value.trim();
- 
-  // Validate payment fields first
-  const tab = document.querySelector('.pay-tab.active').dataset.tab;
-  if(tab==='upi'){
-    const upi = document.getElementById('upi-id').value.trim();
-    if(!upi || !upi.includes('@')){ alert('Please enter a valid UPI ID (e.g. name@upi)'); return; }
-  } else if(tab==='card'){
-    const num = document.getElementById('card-num').value.replace(/\s/g,'');
-    const exp = document.getElementById('card-exp').value.trim();
-    const cvv = document.getElementById('card-cvv').value.trim();
-    const nm  = document.getElementById('card-name').value.trim();
-    if(num.length < 16){ alert('Enter a valid 16-digit card number'); return; }
-    if(!exp || !/^\d{2}\/\d{2}$/.test(exp)){ alert('Enter expiry as MM/YY'); return; }
-    if(cvv.length < 3){ alert('Enter a valid CVV'); return; }
-    if(!nm){ alert('Enter name on card'); return; }
-  } else if(tab==='netbank'){
-    if(!document.getElementById('nb-bank').value){ alert('Please select a bank'); return; }
-  }
- 
-  // Fire Razorpay
-  initiateRazorpayPayment(finalAmount * 100, name, email, phone, function(resp){
-    // Deduct points if used
-    if(discount > 0){
-      const ptsUsed = Math.ceil(discount / 0.1);
-      memberPoints -= ptsUsed;
-      pointsHistory.push({
-        label:'Points Redeemed — Order',
-        date: new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}),
-        pts: ptsUsed, type:'spend'
-      });
-    }
-    // Award purchase points
-    addPurchasePoints(finalAmount);
-    // Show success
-    showPage('success-page');
-  });
-};
 </script>
  
 <!-- Points apply checkbox — inject into payment page -->

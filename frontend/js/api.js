@@ -508,49 +508,114 @@
 
     window.showPage('payment-page');
     window.renderOrderSummary();
-    window.switchPayTab('upi');
+    window.switchPayTab('card');
   };
 
   /**
-   * Creates a real order via POST /api/orders.
-   *
-   * Note what is NOT sent: no prices, no line items, no totals. The server
-   * reads all of that from the user's cart in the database. The client only
-   * supplies the address and the payment method. Only the card's last four
-   * digits ever leave the browser — the full number and CVV are validated
-   * locally and then discarded.
+   * Helper: Initiate Razorpay LIVE payment flow for card payments.
+   * Creates a pending order on backend, opens Razorpay checkout,
+   * and verifies payment signature.
    */
-  window.placeOrder = async function () {
-    if (!isLoggedIn()) {
-      toast('Please log in to complete your order.', 'warn');
-      window.closeCo();
-      openAuthModal('login');
-      return;
+  async function initiateRazorpayPayment(shippingData, pointsToRedeem) {
+    const btn = document.querySelector('#payment-page .co-btn, #payment-page button[onclick*="placeOrder"]');
+    if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Opening Razorpay…'; }
+
+    try {
+      // Step 1: Create order on backend (pending status, no stock decremented)
+      const orderRes = await api('/payments/create-order', {
+        method: 'POST',
+        body: {
+          shipping: shippingData,
+          pointsToRedeem: pointsToRedeem || 0,
+        },
+      });
+
+      const razorpayOrderId = orderRes.order_id;
+      const razorpayKeyId = orderRes.key_id;
+      const amountInPaise = orderRes.amount;
+      const aspOrderId = orderRes.aspOrderId;
+
+      // Step 2: Ensure Razorpay SDK is available
+      if (!window.Razorpay) {
+        throw new Error('Razorpay SDK not loaded. Please refresh and try again.');
+      }
+
+      // Step 3: Open Razorpay checkout
+      const razorpayOptions = {
+        key: razorpayKeyId,
+        amount: amountInPaise,
+        currency: 'INR',
+        name: 'Asp Perfume',
+        description: 'Premium Fragrance Purchase',
+        image: 'https://images.unsplash.com/photo-1588405748880-12d1d2a59f75?w=60&q=80',
+        order_id: razorpayOrderId,
+        prefill: {
+          name: shippingData.name,
+          email: shippingData.email,
+          contact: shippingData.phone,
+        },
+        theme: { color: '#6b3fa0' },
+        handler: async (response) => {
+          // Step 4: Verify payment on backend
+          if (btn) { btn.textContent = 'Verifying payment…'; }
+          try {
+            const verifyRes = await api('/payments/verify', {
+              method: 'POST',
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              },
+            });
+
+            if (verifyRes.verified) {
+              // Payment verified! Show success.
+              document.getElementById('order-id').textContent = 'Order ID: ' + aspOrderId;
+              state.user.points = verifyRes.pointsBalance;
+              state.pointsRedeeming = 0;
+              state.cart = { items: [], itemsTotal: 0, totalQuantity: 0 };
+              window.updateCartDisplay();
+              window.showPage('success-page');
+
+              if (verifyRes.order && verifyRes.order.pointsEarned) {
+                setTimeout(() => toast(`You earned ${verifyRes.order.pointsEarned} points on this order.`, 'success'), 1200);
+              }
+            } else {
+              toast('Payment verification failed. Please contact support.', 'error');
+            }
+          } catch (verifyErr) {
+            toast(`Payment verification failed: ${verifyErr.message}`, 'error');
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || 'Pay & Place Order'; }
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || 'Pay & Place Order'; }
+            toast('Payment cancelled. Your order has not been placed.', 'info');
+          },
+        },
+      };
+
+      // Handle payment errors
+      const rzp = new window.Razorpay(razorpayOptions);
+      rzp.on('payment.failed', (failureResponse) => {
+        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || 'Pay & Place Order'; }
+        toast(`Payment failed: ${failureResponse.error.description || 'Please try again.'}`, 'error');
+      });
+
+      rzp.open();
+    } catch (err) {
+      toast(`Error: ${err.message}`, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || 'Pay & Place Order'; }
     }
+  }
 
-    const tab = document.querySelector('.pay-tab.active').dataset.tab;
-    const payment = { method: tab };
-
-    if (tab === 'upi') {
-      const upi = document.getElementById('upi-id').value.trim();
-      if (!upi || !upi.includes('@')) { toast('Enter a valid UPI ID, e.g. name@upi', 'warn'); return; }
-      payment.upiId = upi;
-    } else if (tab === 'card') {
-      const num = document.getElementById('card-num').value.replace(/\s/g, '');
-      const exp = document.getElementById('card-exp').value.trim();
-      const cvv = document.getElementById('card-cvv').value.trim();
-      const nm = document.getElementById('card-name').value.trim();
-      if (num.length < 16) { toast('Enter a valid 16-digit card number', 'warn'); return; }
-      if (!/^\d{2}\/\d{2}$/.test(exp)) { toast('Enter expiry as MM/YY', 'warn'); return; }
-      if (cvv.length < 3) { toast('Enter a valid CVV', 'warn'); return; }
-      if (!nm) { toast('Enter the name on the card', 'warn'); return; }
-      payment.last4 = num.slice(-4); // only this is transmitted
-    } else if (tab === 'netbank') {
-      const bank = document.getElementById('nb-bank').value;
-      if (!bank) { toast('Please select a bank', 'warn'); return; }
-      payment.bank = bank;
-    }
-
+  /**
+   * Place order via POST /api/orders for non-Razorpay methods (UPI, Netbank, COD).
+   * This is the original flow for simulated payments.
+   */
+  async function placeOrderNonRazorpay(shippingData, payment, pointsToRedeem) {
     const btn = document.querySelector('#payment-page .co-btn, #payment-page button[onclick*="placeOrder"]');
     if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Processing…'; }
 
@@ -558,18 +623,9 @@
       const data = await api('/orders', {
         method: 'POST',
         body: {
-          shipping: {
-            name: document.getElementById('co-name').value.trim(),
-            phone: document.getElementById('co-phone').value.trim(),
-            email: document.getElementById('co-email').value.trim(),
-            address: document.getElementById('co-addr').value.trim(),
-            landmark: (document.getElementById('co-landmark') || {}).value || '',
-            city: document.getElementById('co-city').value.trim(),
-            state: document.getElementById('co-state').value.trim(),
-            pincode: document.getElementById('co-pin').value.trim(),
-          },
+          shipping: shippingData,
           payment,
-          pointsToRedeem: state.pointsRedeeming || 0,
+          pointsToRedeem: pointsToRedeem || 0,
         },
       });
 
@@ -588,6 +644,56 @@
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || 'Place Order'; }
     }
+  }
+
+  /**
+   * Main checkout handler. Routes to Razorpay for card payments,
+   * or uses the traditional flow for UPI/Netbank/COD.
+   */
+  window.placeOrder = async function () {
+    if (!isLoggedIn()) {
+      toast('Please log in to complete your order.', 'warn');
+      window.closeCo();
+      openAuthModal('login');
+      return;
+    }
+
+    const tab = document.querySelector('.pay-tab.active').dataset.tab;
+
+    // Gather shipping details (same for all payment methods)
+    const shippingData = {
+      name: document.getElementById('co-name').value.trim(),
+      phone: document.getElementById('co-phone').value.trim(),
+      email: document.getElementById('co-email').value.trim(),
+      address: document.getElementById('co-addr').value.trim(),
+      landmark: (document.getElementById('co-landmark') || {}).value || '',
+      city: document.getElementById('co-city').value.trim(),
+      state: document.getElementById('co-state').value.trim(),
+      pincode: document.getElementById('co-pin').value.trim(),
+    };
+
+    const pointsToRedeem = state.pointsRedeeming || 0;
+
+    // RAZORPAY FLOW for card payments
+    if (tab === 'card') {
+      return initiateRazorpayPayment(shippingData, pointsToRedeem);
+    }
+
+    // TRADITIONAL FLOW for other payment methods
+    const payment = { method: tab };
+
+    if (tab === 'upi') {
+      const upi = document.getElementById('upi-id').value.trim();
+      if (!upi || !upi.includes('@')) { toast('Enter a valid UPI ID, e.g. name@upi', 'warn'); return; }
+      payment.upiId = upi;
+    } else if (tab === 'netbank') {
+      const bank = document.getElementById('nb-bank').value;
+      if (!bank) { toast('Please select a bank', 'warn'); return; }
+      payment.bank = bank;
+    }
+    // COD is handled by default in the backend
+
+    return placeOrderNonRazorpay(shippingData, payment, pointsToRedeem);
   };
 
   /* ═══════════════════════  ORDERS  ═══════════════════════ */
