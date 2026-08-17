@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Contact = require('../models/Contact');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
+const { getShippingSettings } = require('../utils/shippingSettings');
 
 /* ─────────────── PRODUCTS ─────────────── */
 
@@ -217,6 +218,66 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Order ${order.orderId} is now "${status}".`, order });
 });
 
+/* ─────────────── SHIPPING SETTINGS ─────────────── */
+
+/** GET /api/admin/shipping/settings — Admin */
+const getShippingAdminSettings = asyncHandler(async (req, res) => {
+  const settings = await getShippingSettings();
+  res.json({
+    success: true,
+    settings: {
+      fee: settings.fee,
+      freeShippingThreshold: settings.freeShippingThreshold,
+      updatedBy: settings.updatedBy,
+      updatedAt: settings.updatedAt,
+    },
+  });
+});
+
+/** PUT /api/admin/shipping/settings — Admin only, and only primary admin email can change it */
+const updateShippingAdminSettings = asyncHandler(async (req, res) => {
+  const userEmail = String(req.user?.email || '').toLowerCase();
+  if (userEmail !== 'admin@aspperfume.com') {
+    throw new ApiError(403, 'Only admin@aspperfume.com can update shipping settings.');
+  }
+
+  const fee = Number(req.body?.fee);
+  if (!Number.isFinite(fee) || fee < 0) {
+    throw new ApiError(400, 'Shipping fee must be a non-negative number.');
+  }
+
+  const settings = await getShippingSettings();
+  settings.fee = fee;
+  settings.updatedBy = userEmail;
+  settings.updatedAt = new Date();
+  await settings.save();
+
+  res.json({
+    success: true,
+    message: 'Shipping fee updated successfully.',
+    settings: {
+      fee: settings.fee,
+      freeShippingThreshold: settings.freeShippingThreshold,
+      updatedBy: settings.updatedBy,
+      updatedAt: settings.updatedAt,
+    },
+  });
+});
+
+/** GET /api/shipping/settings — Public */
+const getPublicShippingSettings = asyncHandler(async (req, res) => {
+  const settings = await getShippingSettings();
+  res.json({
+    success: true,
+    settings: {
+      fee: settings.fee,
+      freeShippingThreshold: settings.freeShippingThreshold,
+      updatedBy: settings.updatedBy,
+      updatedAt: settings.updatedAt,
+    },
+  });
+});
+
 /* ─────────────── CONTACTS & USERS ─────────────── */
 
 /** GET /api/admin/contacts — Admin */
@@ -313,6 +374,8 @@ const getStats = asyncHandler(async (req, res) => {
 module.exports = {
   listProducts, createProduct, updateProduct, deleteProduct,
   listOrders, updateOrderStatus,
+  getShippingAdminSettings, updateShippingAdminSettings,
+  getPublicShippingSettings,
   listContacts, updateContact,
   listUsers, getStats,
 };

@@ -126,6 +126,7 @@ select.status{padding:6px 9px;border:1px solid #ddd;font-family:inherit;font-siz
   <button class="active" data-panel="dash" onclick="showPanel('dash')">Dashboard</button>
   <button data-panel="products" onclick="showPanel('products')">Products</button>
   <button data-panel="orders" onclick="showPanel('orders')">Orders</button>
+  <button data-panel="shipping" onclick="showPanel('shipping')">Shipping</button>
   <button data-panel="contacts" onclick="showPanel('contacts')">Messages</button>
   <button data-panel="users" onclick="showPanel('users')">Customers</button>
 </nav>
@@ -149,6 +150,18 @@ select.status{padding:6px 9px;border:1px solid #ddd;font-family:inherit;font-siz
       <select id="oStatus" onchange="loadOrders()"><option>All</option></select>
     </div>
     <div class="wrap"><table id="oTable"></table></div>
+  </div>
+
+  <div class="panel" id="p-shipping">
+    <div class="bar" style="align-items:flex-end;">
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:220px;">
+        <label for="shipping-fee-input" style="font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);">Shipping fee (₹)</label>
+        <input type="number" id="shipping-fee-input" min="0" step="1" placeholder="99"/>
+      </div>
+      <button class="btn" id="shipping-save-btn" onclick="saveShippingSettings()">Save Fee</button>
+    </div>
+    <div id="shipping-status" class="muted">Loading shipping settings…</div>
+    <div id="shipping-threshold" class="muted" style="margin-top:8px;">Free shipping threshold: ₹1500</div>
   </div>
 
   <div class="panel" id="p-contacts">
@@ -302,7 +315,7 @@ function showPanel(name){
   document.querySelectorAll('nav.tabs button').forEach(b=>
     b.classList.toggle('active', b.dataset.panel===name));
   ({dash:loadStats,products:loadProducts,orders:loadOrders,
-    contacts:loadContacts,users:loadUsers}[name])();
+    shipping:loadShippingSettings,contacts:loadContacts,users:loadUsers}[name])();
 }
 
 /* ── DASHBOARD ── */
@@ -318,6 +331,48 @@ async function loadStats(){
       <div class="stat ${s.lowStock?'alert':''}"><div class="label">Low Stock (≤5)</div><div class="value">${s.lowStock}</div></div>
       <div class="stat"><div class="label">Customers</div><div class="value">${s.totalUsers}</div></div>
       <div class="stat ${s.newContacts?'alert':''}"><div class="label">New Messages</div><div class="value">${s.newContacts}</div></div>`;
+  }catch(e){ toast(e.message,'err'); }
+}
+
+async function loadShippingSettings(){
+  try{
+    const {settings} = await api('/admin/shipping/settings');
+    const input = document.getElementById('shipping-fee-input');
+    if (input) input.value = settings.fee ?? 0;
+    const threshold = document.getElementById('shipping-threshold');
+    if (threshold) threshold.textContent = `Free shipping threshold: ${money(settings.freeShippingThreshold ?? 1500)}`;
+    const status = document.getElementById('shipping-status');
+    const allowed = (document.getElementById('who').textContent || '').toLowerCase() === 'admin@aspperfume.com';
+    if (status) {
+      status.textContent = allowed
+        ? 'You are allowed to change the shipping fee.'
+        : 'Only admin@aspperfume.com can change this value.';
+    }
+    const btn = document.getElementById('shipping-save-btn');
+    if (btn) btn.disabled = !allowed;
+  }catch(e){
+    const status = document.getElementById('shipping-status');
+    if (status) status.textContent = e.message;
+  }
+}
+
+async function saveShippingSettings(){
+  const fee = Number(document.getElementById('shipping-fee-input').value);
+  const email = (document.getElementById('who').textContent || '').toLowerCase();
+  if (email !== 'admin@aspperfume.com') {
+    toast('Only admin@aspperfume.com can change shipping settings.', 'err');
+    return;
+  }
+  if (!Number.isFinite(fee) || fee < 0) {
+    toast('Enter a valid non-negative shipping fee.', 'err');
+    return;
+  }
+
+  try{
+    const {message, settings} = await api('/admin/shipping/settings', {method:'PUT', body:{fee}});
+    document.getElementById('shipping-fee-input').value = settings.fee;
+    document.getElementById('shipping-threshold').textContent = `Free shipping threshold: ${money(settings.freeShippingThreshold ?? 1500)}`;
+    toast(message, 'ok');
   }catch(e){ toast(e.message,'err'); }
 }
 

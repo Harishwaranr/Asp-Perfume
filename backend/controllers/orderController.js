@@ -5,9 +5,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { loadCart } = require('./cartController');
 const { calculateRedemption, pointsEarnedFor, pointsToRupees } = require('../utils/points');
-
-const FREE_SHIPPING_THRESHOLD = 1500;
-const SHIPPING_FEE = 99;
+const { getShippingSettings, getShippingFeeForItems } = require('../utils/shippingSettings');
 
 /**
  * Validates payment details WITHOUT persisting anything sensitive.
@@ -112,7 +110,8 @@ const createOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, redemption.reason);
   }
 
-  const shippingFee = itemsTotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const settings = await getShippingSettings();
+  const shippingFee = getShippingFeeForItems(itemsTotal, settings);
   const grandTotal = Math.max(0, itemsTotal - redemption.discount + shippingFee);
 
   const paymentRecord = validatePayment(payment);

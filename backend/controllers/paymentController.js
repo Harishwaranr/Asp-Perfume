@@ -6,6 +6,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { loadCart } = require('./cartController');
 const { calculateRedemption, pointsEarnedFor } = require('../utils/points');
+const { getShippingSettings, getShippingFeeForItems } = require('../utils/shippingSettings');
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -34,9 +35,6 @@ const { calculateRedemption, pointsEarnedFor } = require('../utils/points');
  *  routes return 503 with a clear message rather than half-working.
  * ═══════════════════════════════════════════════════════════════════════
  */
-
-const FREE_SHIPPING_THRESHOLD = 1500;
-const SHIPPING_FEE = 99;
 
 function isConfigured() {
   return Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
@@ -119,7 +117,8 @@ const createRazorpayOrder = asyncHandler(async (req, res) => {
   const redemption = calculateRedemption(pointsToRedeem, req.user.points, itemsTotal);
   if (redemption.reason && Number(pointsToRedeem) > 0) throw new ApiError(400, redemption.reason);
 
-  const shippingFee = itemsTotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const settings = await getShippingSettings();
+  const shippingFee = getShippingFeeForItems(itemsTotal, settings);
   const grandTotal = Math.max(1, itemsTotal - redemption.discount + shippingFee);
 
   const order = await Order.create({

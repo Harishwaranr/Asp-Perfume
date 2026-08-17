@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   listProducts, createProduct, updateProduct, deleteProduct,
   listOrders, updateOrderStatus,
+  getShippingAdminSettings, updateShippingAdminSettings,
   listContacts, updateContact,
   listUsers, getStats,
 } = require('../controllers/adminController');
@@ -18,6 +19,9 @@ router.route('/products/:id').put(updateProduct).delete(deleteProduct);
 
 router.get('/orders', listOrders);
 router.put('/orders/:id/status', updateOrderStatus);
+
+router.get('/shipping/settings', getShippingAdminSettings);
+router.put('/shipping/settings', updateShippingAdminSettings);
 
 router.get('/contacts', listContacts);
 router.put('/contacts/:id', updateContact);

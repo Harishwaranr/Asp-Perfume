@@ -19,6 +19,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const shippingRoutes = require('./routes/shippingRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -91,6 +92,7 @@ app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/shipping', shippingRoutes);
 app.use('/api/payments', paymentRoutes);
 
 // Legacy aliases. Your original index.html called these two paths directly;

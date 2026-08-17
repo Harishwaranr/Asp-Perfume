@@ -48,6 +48,7 @@
     cart: { items: [], itemsTotal: 0, totalQuantity: 0 },
     orders: [],
     pointsRedeeming: 0,
+    shippingSettings: { fee: 99, freeShippingThreshold: 1500 },
   };
 
   const rupee = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -399,7 +400,10 @@
         </div>`;
     }
 
-    const shippingFee = itemsTotal >= 1500 ? 0 : 99;
+    const shippingSettings = state.shippingSettings || { fee: 99, freeShippingThreshold: 1500 };
+    const shippingFee = itemsTotal >= Number(shippingSettings.freeShippingThreshold || 1500)
+      ? 0
+      : Number(shippingSettings.fee || 0);
     const discount = state.pointsRedeeming
       ? Math.min(state.pointsRedeeming * POINT_VALUE, itemsTotal)
       : 0;
@@ -444,6 +448,20 @@
     set('co-name', state.user.name);
     set('co-email', state.user.email);
     set('co-phone', state.user.phone);
+  }
+
+  async function loadShippingSettings() {
+    try {
+      const data = await api('/shipping/settings', { auth: false });
+      if (data?.settings) {
+        state.shippingSettings = {
+          fee: Number(data.settings.fee || 99),
+          freeShippingThreshold: Number(data.settings.freeShippingThreshold || 1500),
+        };
+      }
+    } catch (err) {
+      console.warn('[asp] shipping settings fetch failed:', err.message);
+    }
   }
 
   /* ═══════════════════════  CHECKOUT  ═══════════════════════ */
@@ -1466,6 +1484,7 @@
       }
     }
     renderAccountLink();
+    await loadShippingSettings();
 
     await loadProducts();
 
