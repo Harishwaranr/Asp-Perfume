@@ -526,7 +526,6 @@
 
     window.showPage('payment-page');
     window.renderOrderSummary();
-    window.switchPayTab('card');
   };
 
   /**
@@ -630,43 +629,9 @@
   }
 
   /**
-   * Place order via POST /api/orders for non-Razorpay methods (UPI, Netbank, COD).
-   * This is the original flow for simulated payments.
-   */
-  async function placeOrderNonRazorpay(shippingData, payment, pointsToRedeem) {
-    const btn = document.querySelector('#payment-page .co-btn, #payment-page button[onclick*="placeOrder"]');
-    if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Processing…'; }
-
-    try {
-      const data = await api('/orders', {
-        method: 'POST',
-        body: {
-          shipping: shippingData,
-          payment,
-          pointsToRedeem: pointsToRedeem || 0,
-        },
-      });
-
-      document.getElementById('order-id').textContent = 'Order ID: ' + data.order.orderId;
-      state.user.points = data.pointsBalance;
-      state.pointsRedeeming = 0;
-      state.cart = { items: [], itemsTotal: 0, totalQuantity: 0 };
-      window.updateCartDisplay();
-      window.showPage('success-page');
-
-      if (data.order.pointsEarned) {
-        setTimeout(() => toast(`You earned ${data.order.pointsEarned} points on this order.`, 'success'), 1200);
-      }
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || 'Place Order'; }
-    }
-  }
-
-  /**
-   * Main checkout handler. Routes to Razorpay for card payments,
-   * or uses the traditional flow for UPI/Netbank/COD.
+   * Main checkout handler. Razorpay Standard Checkout handles all supported
+   * payment methods; the backend verifies the signature before the order is
+   * marked as paid.
    */
   window.placeOrder = async function () {
     if (!isLoggedIn()) {
@@ -676,9 +641,6 @@
       return;
     }
 
-    const tab = document.querySelector('.pay-tab.active').dataset.tab;
-
-    // Gather shipping details (same for all payment methods)
     const shippingData = {
       name: document.getElementById('co-name').value.trim(),
       phone: document.getElementById('co-phone').value.trim(),
@@ -691,27 +653,7 @@
     };
 
     const pointsToRedeem = state.pointsRedeeming || 0;
-
-    // RAZORPAY FLOW for card payments
-    if (tab === 'card') {
-      return initiateRazorpayPayment(shippingData, pointsToRedeem);
-    }
-
-    // TRADITIONAL FLOW for other payment methods
-    const payment = { method: tab };
-
-    if (tab === 'upi') {
-      const upi = document.getElementById('upi-id').value.trim();
-      if (!upi || !upi.includes('@')) { toast('Enter a valid UPI ID, e.g. name@upi', 'warn'); return; }
-      payment.upiId = upi;
-    } else if (tab === 'netbank') {
-      const bank = document.getElementById('nb-bank').value;
-      if (!bank) { toast('Please select a bank', 'warn'); return; }
-      payment.bank = bank;
-    }
-    // COD is handled by default in the backend
-
-    return placeOrderNonRazorpay(shippingData, payment, pointsToRedeem);
+    return initiateRazorpayPayment(shippingData, pointsToRedeem);
   };
 
   /* ═══════════════════════  ORDERS  ═══════════════════════ */

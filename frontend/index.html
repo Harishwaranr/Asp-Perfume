@@ -746,16 +746,8 @@ function goToPayment(){
   }
   showPage('payment-page');
   renderOrderSummary();
-  switchPayTab('upi');
 }
  
-function switchPayTab(tab){
-  document.querySelectorAll('.pay-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.pay-panel').forEach(p=>p.style.display='none');
-  document.querySelector(`.pay-tab[data-tab="${tab}"]`).classList.add('active');
-  document.getElementById('panel-'+tab).style.display='block';
-}
-
 // placeOrder() is defined in js/api.js — don't define it here!
 // The api.js version handles Razorpay payment flow correctly.
 // All old demo payment code has been removed from index.html.
@@ -794,13 +786,10 @@ function formatCardNum(el){
 .co-btn:hover{background:#5a3390}
 .co-btn-back{background:none;border:1px solid #ddd;color:#777;margin-top:8px}
 .co-btn-back:hover{border-color:var(--purple);color:var(--purple);background:none}
-/* payment tabs */
-.pay-tabs{display:flex;gap:0;margin-bottom:22px;border:1px solid #eee}
-.pay-tab{flex:1;padding:12px;border:none;background:#fff;font-family:'Jost',sans-serif;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;color:#999}
-.pay-tab.active{color:var(--purple);border-bottom-color:var(--purple);background:rgba(107,63,160,.04)}
-.pay-panel{display:none}
-.upi-logos{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-.upi-logo{padding:6px 14px;border:1px solid #eee;font-size:.75rem;color:#555;border-radius:3px;font-family:'Jost',sans-serif}
+/* payment layout */
+.pay-panel{display:block}
+.payment-method-note{background:rgba(107,63,160,.08);border:1px solid rgba(107,63,160,.2);border-radius:4px;padding:14px 16px;margin-bottom:18px;font-size:.82rem;color:#555;line-height:1.6}
+.payment-method-note strong{color:#6b3fa0}
 /* success */
 .success-wrap{text-align:center;padding:30px 20px}
 .success-icon{font-size:3.5rem;margin-bottom:14px}
@@ -882,73 +871,13 @@ function formatCardNum(el){
           <h4>Order Summary</h4>
           <div id="order-summary-pay"></div>
         </div>
-        <div class="pay-tabs">
-          <button class="pay-tab" data-tab="upi" onclick="switchPayTab('upi')">UPI</button>
-          <button class="pay-tab" data-tab="card" onclick="switchPayTab('card')">Debit / Credit Card</button>
-          <button class="pay-tab" data-tab="netbank" onclick="switchPayTab('netbank')">Net Banking</button>
-        </div>
- 
-        <!-- UPI -->
-        <div class="pay-panel" id="panel-upi">
-          <div class="upi-logos">
-            <span class="upi-logo">GPay</span>
-            <span class="upi-logo">PhonePe</span>
-            <span class="upi-logo">Paytm</span>
-            <span class="upi-logo">BHIM</span>
-          </div>
-          <div class="co-field" style="margin-bottom:14px">
-            <label>Enter UPI ID *</label>
-            <input id="upi-id" type="text" placeholder="yourname@upi"/>
-          </div>
- 
-        </div>
- 
-        <!-- CARD -->
-        <div class="pay-panel" id="panel-card">
-          <div style="background:rgba(107,63,160,.1);border:1px solid rgba(107,63,160,.2);border-radius:4px;padding:12px 14px;margin-bottom:14px;font-size:.82rem;color:#555;">
-            <strong style="color:#6b3fa0;">Secure Razorpay Payment:</strong> Your card details are handled securely by Razorpay. Click "Pay & Place Order" to proceed.
-          </div>
-          <div class="co-field" style="margin-bottom:14px;display:none">
-            <label>Card Number *</label>
-            <input id="card-num" type="text" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCardNum(this)"/>
-          </div>
-          <div class="co-form-row" style="display:none">
-            <div class="co-field">
-              <label>Expiry (MM/YY) *</label>
-              <input id="card-exp" type="text" placeholder="08/27" maxlength="5"/>
-            </div>
-            <div class="co-field">
-              <label>CVV *</label>
-              <input id="card-cvv" type="password" placeholder="•••" maxlength="4"/>
-            </div>
-          </div>
-          <div class="co-field" style="margin-bottom:14px;display:none">
-            <label>Name on Card *</label>
-            <input id="card-name" type="text" placeholder="Ravi Kumar"/>
+
+        <div class="pay-panel" id="panel-standard">
+          <div class="payment-method-note">
+            <strong>Secure Razorpay Checkout:</strong> Razorpay will handle the available payment options for this order, including UPI, cards, net banking, wallets, and other supported methods.
           </div>
         </div>
- 
-        <!-- NET BANKING -->
-        <div class="pay-panel" id="panel-netbank">
-          <div class="co-field" style="margin-bottom:14px">
-            <label>Select Your Bank *</label>
-            <select id="nb-bank">
-              <option value="">-- Choose Bank --</option>
-              <option>State Bank of India</option>
-              <option>HDFC Bank</option>
-              <option>ICICI Bank</option>
-              <option>Axis Bank</option>
-              <option>Kotak Mahindra Bank</option>
-              <option>Bank of Baroda</option>
-              <option>Punjab National Bank</option>
-              <option>Canara Bank</option>
-              <option>Yes Bank</option>
-              <option>IndusInd Bank</option>
-            </select>
-          </div>
-          <p style="font-size:.78rem;color:#aaa;margin-bottom:14px">You will be redirected to your bank's secure portal to complete payment.</p>
-        </div>
- 
+
         <button class="co-btn" onclick="placeOrder()">Pay & Place Order →</button>
         <button class="co-btn co-btn-back" onclick="showPage('delivery-page');document.getElementById('co-title').textContent='Delivery Details';document.getElementById('co-step-label').textContent='Step 1 of 2'">← Back to Delivery</button>
       </div>
@@ -1988,7 +1917,12 @@ function injectPointsToggle(){
       Use my points — <span id="pts-toggle-info" style="color:var(--purple);font-weight:500">Subscribe to earn points</span>
     </label>
   `;
-  payBody.insertBefore(div, payBody.querySelector('.pay-tabs'));
+  const insertBeforeEl = payBody.querySelector('.payment-method-note, .co-btn');
+  if(insertBeforeEl){
+    payBody.insertBefore(div, insertBeforeEl);
+  } else {
+    payBody.appendChild(div);
+  }
   updatePointsToggleDisplay();
 }
 function updatePointsToggleDisplay(){
